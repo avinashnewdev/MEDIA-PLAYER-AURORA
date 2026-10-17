@@ -1,9 +1,10 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
 
-// Keep Chromium's media features enabled where the platform supports them.
+// Unlock Hardware Decoders for HEVC (H.265), VAAPI, and GPU Acceleration
 app.commandLine.appendSwitch('enable-features', 'PlatformHEVCDecoderSupport,VaapiVideoDecoder');
 app.commandLine.appendSwitch('ignore-gpu-blacklist');
+app.commandLine.appendSwitch('enable-gpu-rasterization');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
 function createWindow() {
@@ -19,12 +20,10 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      // Keep webSecurity enabled; local media should be handled explicitly.
-      webSecurity: true
+      webSecurity: false
     }
   });
 
-  // index.html is the actual entry point tracked in this repository.
   win.loadFile(path.join(__dirname, 'index.html'));
 }
 
