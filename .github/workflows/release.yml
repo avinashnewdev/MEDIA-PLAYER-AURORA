@@ -16,12 +16,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
-      - name: Prepare Icon & Build Windows EXE
+          node-version: 22
+      - name: Prepare Assets & Build Windows EXE
+        shell: cmd
         run: |
-          if (!(Test-Path "icon-192.png")) { Copy-Item "icon-512.png" "icon-192.png" }
+          copy /Y icon-512.png icon-192.png
           npm install
-          npx electron-builder --win portable nsis
+          npx electron-builder --win portable nsis --publish never
       - uses: actions/upload-artifact@v4
         with:
           name: Aurora-Windows-EXE
@@ -34,7 +35,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
@@ -42,7 +43,7 @@ jobs:
       - name: Bundle Web Assets & Build Android APK
         run: |
           mkdir -p www
-          cp index.html manifest.webmanifest sw.js icon-512.png icon-192.ico www/
+          cp index.html manifest.webmanifest sw.js icon-512.png www/
           cp icon-512.png www/icon-192.png
           npm install
           npx cap init "Aurora Music" "com.avinash.auroraplayer" --web-dir www
@@ -55,25 +56,29 @@ jobs:
           name: Aurora-Android-APK
           path: android/app/build/outputs/apk/debug/Aurora-Media-Player.apk
 
-  # 3. BUILD iOS (.IPA)
+  # 3. BUILD iOS (.IPA) - FIXED EXIT CODE 65
   build-ios:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - name: Build Unsigned iOS IPA
         run: |
           mkdir -p www
-          cp index.html manifest.webmanifest sw.js icon-512.png icon-192.ico www/
+          cp index.html manifest.webmanifest sw.js icon-512.png www/
           cp icon-512.png www/icon-192.png
           npm install
           npx cap init "Aurora Music" "com.avinash.auroraplayer" --web-dir www
           npx cap add ios
           npx cap sync ios
           cd ios/App
-          xcodebuild -project App.xcodeproj -scheme App -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+          if [ -d "App.xcworkspace" ]; then
+            xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO EXPANDED_CODE_SIGN_IDENTITY="" AD_HOC_CODE_SIGNING_ALLOWED=YES
+          else
+            xcodebuild -project App.xcodeproj -scheme App -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO EXPANDED_CODE_SIGN_IDENTITY="" AD_HOC_CODE_SIGNING_ALLOWED=YES
+          fi
           mkdir -p Payload
           cp -r build/Build/Products/Release-iphoneos/App.app Payload/
           zip -r Aurora-Media-Player-iOS.ipa Payload
@@ -97,9 +102,9 @@ jobs:
           name: "Aurora Media Player v1.0.${{ github.run_number }} (Windows EXE + Android APK + iOS)"
           body: |
             ### 🎵 Aurora Media Player — Universal Release
-            - **Windows (.exe):** Portable & Installer (Supports H.265/HEVC, MKV, AC3, 20-Band EQ)
+            - **Windows (.exe):** Portable & Installer (`Aurora Media Player 1.0.0.exe` & Setup)
             - **Android (.apk):** Direct Install APK (`Aurora-Media-Player.apk`)
-            - **iOS (.ipa):** Sideload via AltStore / Sideloadly or install directly via Safari PWA (`Add to Home Screen`)
+            - **iOS (.ipa):** Sideload via AltStore / Sideloadly (`Aurora-Media-Player-iOS.ipa`) or install via Safari PWA (`Add to Home Screen`)
           files: |
             artifacts/Aurora-Windows-EXE/*.exe
             artifacts/Aurora-Android-APK/*.apk
