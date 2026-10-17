@@ -8,7 +8,8 @@
     "start": "electron .",
     "build:win": "electron-builder --win --x64 --publish never",
     "build:android": "cap sync android && cd android && ./gradlew assembleDebug",
-    "build:ios": "cap sync ios"
+    "build:ios": "cap sync ios",
+    "check:js": "node --check electron-main.js && node --check sw.js && node scripts/check-inline-scripts.cjs"
   },
   "build": {
     "appId": "com.avinash.auroraplayer",
