@@ -1,11 +1,14 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, protocol } = require('electron');
 const path = require('path');
 
-// Unlock Hardware Decoders for HEVC (H.265), VAAPI, and GPU Acceleration
 app.commandLine.appendSwitch('enable-features', 'PlatformHEVCDecoderSupport,VaapiVideoDecoder');
 app.commandLine.appendSwitch('ignore-gpu-blacklist');
-app.commandLine.appendSwitch('enable-gpu-rasterization');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+
+// Register custom protocol before app is ready to fix file loading & CORS issues
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } }
+]);
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -24,10 +27,20 @@ function createWindow() {
     }
   });
 
-  win.loadFile(path.join(__dirname, 'index.html'));
+  // Load via custom secure app protocol
+  win.loadURL('app://index.html');
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  protocol.handle('app', (request) => {
+    let filePath = request.url.slice('app://'.length);
+    if (filePath === '' || filePath === '/') filePath = 'index.html';
+    return protocol.net.fetch('file://' + path.join(__dirname, filePath));
+  });
+
+  createWindow();
+});
+
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
