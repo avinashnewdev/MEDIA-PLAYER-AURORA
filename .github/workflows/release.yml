@@ -43,7 +43,7 @@ jobs:
           npm install
           mkdir -p www
           cp index.html www/index.html
-          cp manifest.webmanifest sw.js icon-512.png icon-192.png www/
+          cp manifest.webmanifest sw.js icon-512.png www/
           npx cap init "Aurora Music" "com.avinash.auroraplayer" --web-dir www
           npx cap add android
           npx cap sync android
@@ -70,7 +70,7 @@ jobs:
           npm install
           mkdir -p www
           cp index.html www/index.html
-          cp manifest.webmanifest sw.js icon-512.png icon-192.png www/
+          cp manifest.webmanifest sw.js icon-512.png www/
           npx cap init "Aurora Music" "com.avinash.auroraplayer" --web-dir www
           npx cap add ios
           npx cap sync ios
