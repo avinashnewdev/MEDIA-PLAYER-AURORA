@@ -1,111 +1,38 @@
-name: Build & Publish Aurora (EXE + APK + iOS)
-
-on:
-  push:
-    branches: [ "main", "master" ]
-  workflow_dispatch:
-
-permissions:
-  contents: write
-
-jobs:
-  # 1. BUILD WINDOWS (.EXE) PORTABLE & INSTALLER
-  build-exe:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Prepare Assets & Build Windows EXE
-        shell: cmd
-        run: |
-          copy /Y icon-512.png icon-192.png
-          npm install
-          npx electron-builder --win portable nsis --publish never
-      - uses: actions/upload-artifact@v4
-        with:
-          name: Aurora-Windows-EXE
-          path: dist/*.exe
-
-  # 2. BUILD ANDROID (.APK)
-  build-apk:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-      - name: Bundle Web Assets & Build Android APK
-        run: |
-          mkdir -p www
-          cp index.html manifest.webmanifest sw.js icon-512.png www/
-          cp icon-512.png www/icon-192.png
-          npm install
-          npx cap init "Aurora Music" "com.avinash.auroraplayer" --web-dir www
-          npx cap add android
-          npx cap sync android
-          cd android && chmod +x gradlew && ./gradlew assembleDebug
-          mv app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/Aurora-Media-Player.apk
-      - uses: actions/upload-artifact@v4
-        with:
-          name: Aurora-Android-APK
-          path: android/app/build/outputs/apk/debug/Aurora-Media-Player.apk
-
-  # 3. BUILD iOS (.IPA) - FIXED EXIT CODE 65
-  build-ios:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Build Unsigned iOS IPA
-        run: |
-          mkdir -p www
-          cp index.html manifest.webmanifest sw.js icon-512.png www/
-          cp icon-512.png www/icon-192.png
-          npm install
-          npx cap init "Aurora Music" "com.avinash.auroraplayer" --web-dir www
-          npx cap add ios
-          npx cap sync ios
-          cd ios/App
-          if [ -d "App.xcworkspace" ]; then
-            xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO EXPANDED_CODE_SIGN_IDENTITY="" AD_HOC_CODE_SIGNING_ALLOWED=YES
-          else
-            xcodebuild -project App.xcodeproj -scheme App -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO EXPANDED_CODE_SIGN_IDENTITY="" AD_HOC_CODE_SIGNING_ALLOWED=YES
-          fi
-          mkdir -p Payload
-          cp -r build/Build/Products/Release-iphoneos/App.app Payload/
-          zip -r Aurora-Media-Player-iOS.ipa Payload
-      - uses: actions/upload-artifact@v4
-        with:
-          name: Aurora-iOS-IPA
-          path: ios/App/Aurora-Media-Player-iOS.ipa
-
-  # 4. PUBLISH ALL 3 TO GITHUB RELEASES (100% FREE)
-  publish-release:
-    needs: [build-exe, build-apk, build-ios]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-      - name: Publish Free GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v1.0.${{ github.run_number }}
-          name: "Aurora Media Player v1.0.${{ github.run_number }} (Windows EXE + Android APK + iOS)"
-          body: |
-            ### 🎵 Aurora Media Player — Universal Release
-            - **Windows (.exe):** Portable & Installer (`Aurora Media Player 1.0.0.exe` & Setup)
-            - **Android (.apk):** Direct Install APK (`Aurora-Media-Player.apk`)
-            - **iOS (.ipa):** Sideload via AltStore / Sideloadly (`Aurora-Media-Player-iOS.ipa`) or install via Safari PWA (`Add to Home Screen`)
-          files: |
-            artifacts/Aurora-Windows-EXE/*.exe
-            artifacts/Aurora-Android-APK/*.apk
-            artifacts/Aurora-iOS-IPA/*.ipa
+{
+  "name": "media-player-aurora",
+  "version": "1.0.0",
+  "description": "Aurora Music & Video Player with 20-Band EQ & All-Codec Support",
+  "author": "Avinash Jadhav",
+  "main": "electron-main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:win": "electron-builder --win portable nsis"
+  },
+  "build": {
+    "appId": "com.avinash.auroraplayer",
+    "productName": "Aurora Media Player",
+    "files": [
+      "electron-main.js",
+      "index.html",
+      "manifest.webmanifest",
+      "sw.js",
+      "icon-192.png",
+      "icon-512.png"
+    ],
+    "win": {
+      "icon": "icon-512.png",
+      "target": [
+        { "target": "portable", "arch": ["x64"] },
+        { "target": "nsis", "arch": ["x64"] }
+      ]
+    }
+  },
+  "devDependencies": {
+    "@capacitor/android": "^6.1.0",
+    "@capacitor/cli": "^6.1.0",
+    "@capacitor/core": "^6.1.0",
+    "@capacitor/ios": "^6.1.0",
+    "electron": "^31.2.0",
+    "electron-builder": "^24.13.3"
+  }
+}
