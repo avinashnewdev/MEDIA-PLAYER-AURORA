@@ -6,7 +6,7 @@
   "main": "electron-main.js",
   "scripts": {
     "start": "electron .",
-    "build:win": "electron-builder --win portable nsis"
+    "build:win": "electron-builder --win portable"
   },
   "build": {
     "appId": "com.avinash.auroraplayer",
@@ -21,10 +21,7 @@
     ],
     "win": {
       "icon": "icon-512.png",
-      "target": [
-        { "target": "portable", "arch": ["x64"] },
-        { "target": "nsis", "arch": ["x64"] }
-      ]
+      "target": ["portable"]
     }
   },
   "devDependencies": {
