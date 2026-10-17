@@ -1,12 +1,15 @@
 {
   "name": "media-player-aurora",
   "version": "1.0.0",
-  "description": "Aurora Music & Video Player with 20-Band EQ & All-Codec Support",
-  "author": "Avinash Jadhav",
+  "description": "Aurora Music & Video Player",
+  "author": "Aurora Media Player contributors",
   "main": "electron-main.js",
   "scripts": {
     "start": "electron .",
-    "build:win": "electron-builder --win portable"
+    "build:win": "electron-builder --win --x64 --publish never",
+    "build:android": "cap sync android && cd android && ./gradlew assembleDebug",
+    "build:ios": "cap sync ios",
+    "check:js": "node --check electron-main.js && node --check sw.js && node scripts/check-inline-scripts.cjs"
   },
   "build": {
     "appId": "com.avinash.auroraplayer",
@@ -21,7 +24,9 @@
     ],
     "win": {
       "icon": "icon-512.png",
-      "target": ["portable"]
+      "target": [
+        "portable"
+      ]
     }
   },
   "devDependencies": {
