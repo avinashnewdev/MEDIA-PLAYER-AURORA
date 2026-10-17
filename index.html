@@ -3312,12 +3312,25 @@ function setVideoFitMode(mode,showMsg=true){
     syncVSBtns();
     applyVideoTransform();
   }));
-  if($('#vz-rng'))$('#vz-rng').oninput=e=>{e.stopPropagation();vZoom=round1(e.target.value);S.set('vZoom',vZoom);applyVideoTransform()};
-  if($('#vz-num'))$('#vz-num').oninput=e=>{e.stopPropagation();const v=parseFloat(e.target.value);if(!isNaN(v)){vZoom=round1(v);S.set('vZoom',vZoom);applyVideoTransform()}};
+  if($('#vz-rng'))$('#vz-rng').oninput=e=>{e.stopPropagation();vZoom=Math.max(50,Math.min(300,round1(e.target.value)));S.set('vZoom',vZoom);applyVideoTransform()};
+  if($('#vz-num')){
+    const zoomNum=$('#vz-num');
+    const commitZoom=()=>{const n=parseFloat(zoomNum.value);vZoom=Math.max(50,Math.min(300,round1(Number.isFinite(n)?n:100)));S.set('vZoom',vZoom);applyVideoTransform()};
+    zoomNum.oninput=e=>{e.stopPropagation();const n=parseFloat(e.target.value);if(Number.isFinite(n)){vZoom=Math.max(50,Math.min(300,round1(n)));S.set('vZoom',vZoom);applyVideoTransform()}};
+    zoomNum.addEventListener('change',commitZoom);
+    zoomNum.addEventListener('blur',commitZoom);
+    zoomNum.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();zoomNum.blur()}});
+  }
   ['t','b','l','r'].forEach(side=>{
     const el=$('#vst-'+side),num=$('#vst-'+side+'-num');
-    if(el)el.oninput=e=>{e.stopPropagation();vStretch[side]=round1(e.target.value);S.set('vStretch',vStretch);applyVideoTransform()};
-    if(num)num.oninput=e=>{e.stopPropagation();const v=parseFloat(e.target.value);if(!isNaN(v)){vStretch[side]=round1(v);S.set('vStretch',vStretch);applyVideoTransform()}};
+    if(el)el.oninput=e=>{e.stopPropagation();vStretch[side]=Math.max(-50,Math.min(100,round1(e.target.value)));S.set('vStretch',vStretch);applyVideoTransform()};
+    if(num){
+      const commitStretch=()=>{const n=parseFloat(num.value);vStretch[side]=Math.max(-50,Math.min(100,round1(Number.isFinite(n)?n:0)));S.set('vStretch',vStretch);applyVideoTransform()};
+      num.oninput=e=>{e.stopPropagation();const n=parseFloat(e.target.value);if(Number.isFinite(n)){vStretch[side]=Math.max(-50,Math.min(100,round1(n));S.set('vStretch',vStretch);applyVideoTransform()}};
+      num.addEventListener('change',commitStretch);
+      num.addEventListener('blur',commitStretch);
+      num.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();num.blur()}});
+    }
   });
   // Exact 0.1% Stepper buttons with both single-tap (0.1%) and smooth press-and-hold acceleration for Top, Bottom, Left, Right & Zoom
   let holdTimer=null,holdInterval=null,holdTicks=0;
