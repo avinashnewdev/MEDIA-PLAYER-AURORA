@@ -19,6 +19,8 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install
+      - name: Check JavaScript syntax
+        run: npm run check:js
       - name: Build portable Windows EXE
         run: npx electron-builder --win --x64 --publish never
       - uses: actions/upload-artifact@v4
@@ -47,6 +49,8 @@ jobs:
           npx cap init "Aurora Music" "com.avinash.auroraplayer" --web-dir www
           npx cap add android
           npx cap sync android
+      - name: Check JavaScript syntax
+        run: npm run check:js
       - name: Build Android debug APK
         run: |
           cd android
@@ -74,6 +78,8 @@ jobs:
           npx cap init "Aurora Music" "com.avinash.auroraplayer" --web-dir www
           npx cap add ios
           npx cap sync ios
+      - name: Check JavaScript syntax
+        run: npm run check:js
       - name: Build unsigned iOS app bundle
         run: |
           cd ios/App
