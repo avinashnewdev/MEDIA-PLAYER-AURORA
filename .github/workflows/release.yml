@@ -9,20 +9,20 @@ permissions:
   contents: write
 
 jobs:
-  # 1. BUILD WINDOWS (.EXE) PORTABLE & INSTALLER
+  # 1. BUILD WINDOWS (.EXE) PORTABLE
   build-exe:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-      - name: Prepare Assets & Build Windows EXE
-        shell: cmd
+          node-version: 20
+      - name: Build Windows EXE via Electron-Builder
         run: |
-          copy /Y icon-512.png icon-192.png
           npm install
-          npx electron-builder --win portable nsis --publish never
+          npx electron-builder --win --x64 --publish never
+      - name: Check Built Files
+        run: Get-ChildItem -Recurse dist/*
       - uses: actions/upload-artifact@v4
         with:
           name: Aurora-Windows-EXE
