@@ -3084,7 +3084,7 @@ function syncAudioTracks(t){
   htmlGroups+=`<optgroup label="Audio Booster & Dual-Channel Modes" data-ico="nset">${stModes.map(([v,l,ic])=>`<option value="${esc(v)}" data-ico="${ic}"${curVal===v?' selected':''}>${esc(l)}</option>`).join('')}</optgroup>`;
   ['#aud','#oaud'].forEach(s=>{const el=$(s);if(el){el.innerHTML=htmlGroups;if(curVal)el.value=curVal;if(el._cselRebuild)el._cselRebuild()}});
 }
-async async function setAudioLang(val){
+async function setAudioLang(val){
   ensureTrack();
   ensureAudioCtx();
   const t=T(queue[i])||T(queue[0]);
