@@ -78,12 +78,14 @@ jobs:
           npx cap init "Aurora Music" "com.avinash.auroraplayer" --web-dir www
           npx cap add ios
           npx cap sync ios
+          cd ios/App
+          pod install
       - name: Check JavaScript syntax
         run: npm run check:js
       - name: Build unsigned iOS app bundle
         run: |
           cd ios/App
-          xcodebuild -project App.xcodeproj -scheme App -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGNING_ALLOWED=NO
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGNING_ALLOWED=NO
           mkdir -p Payload
           cp -R build/Build/Products/Release-iphoneos/App.app Payload/
           zip -qr Aurora-Media-Player-iOS-UNSIGNED.ipa Payload
