@@ -1,11 +1,10 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
 
-// Unlock Hardware Decoders for HEVC (H.265), VAAPI, and GPU Acceleration
-app.commandLine.appendSwitch('enable-features', 'PlatformHEVCDecoderSupport,VaapiVideoDecoder');
-app.commandLine.appendSwitch('ignore-gpu-blacklist');
+// Keep Chromium's normal security protections enabled. Media files selected
+// by the user can still be opened through the file picker without disabling
+// web security for the entire renderer.
 app.commandLine.appendSwitch('enable-gpu-rasterization');
-app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -20,7 +19,7 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      webSecurity: false
+      webSecurity: true
     }
   });
 
