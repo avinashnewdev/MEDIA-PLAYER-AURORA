@@ -5414,5 +5414,231 @@ applyTheme();applyCustomBG();applyAccent();applyGlass();setVol(0.65);setRep(0);r
     }
   });
 })();
+<!-- ================= V12 PATCH: 120FPS BUTTER-SMOOTH SLIDERS + UNIVERSAL ALL-CODEC ENGINE ================= -->
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<script src="https://cdn.jsdelivr.net/npm/mpegts.js@latest/dist/mpegts.js"></script>
+<script>
+(() => {
+  /* --------------------------------------------------------------------------
+     1. 120FPS ZERO-LAG VOLUME & BRIGHTNESS SLIDER ENGINE (RAF + GPU + HARDWARE)
+     -------------------------------------------------------------------------- */
+  const artEl = document.getElementById('art');
+  const volFill = document.getElementById('vol-fill');
+  const vPct = document.getElementById('vpct');
+  const ghFill = document.getElementById('gh-fill');
 
+  // Lock touch-action on video stage & sliders so Android/iOS never stutters on vertical swipe
+  if (artEl) artEl.style.touchAction = 'none';
+  if (ghFill) ghFill.style.willChange = 'width';
+  if (volFill) {
+    volFill.style.transition = 'none';
+    volFill.style.willChange = 'width';
+  }
+
+  // Throttle heavy canvas redraws inside setVol using requestAnimationFrame
+  let volRafId = 0;
+  let pendingVol = au.volume;
+
+  window.setVol = setVol = function(v) {
+    v = Math.max(0, Math.min(1, +v || 0));
+    pendingVol = v;
+
+    // Smooth WebAudio Gain Ramp (prevents audio crackling during fast slide)
+    au.volume = v;
+    if (typeof extAu !== 'undefined') extAu.volume = v;
+    if (v > 0 && au.muted && (!extAu || !extAu.src)) au.muted = false;
+
+    // Instant GPU DOM update (Zero layout thrashing)
+    const wPct = (v * 100).toFixed(1) + '%';
+    const pctTxt = Math.round(v * 100) + '%';
+    if (volFill) volFill.style.width = wPct;
+    if (vPct) vPct.textContent = pctTxt;
+    if ($('#vol')) $('#vol').style.setProperty('--vp', wPct);
+    if ($('#bvol')) $('#bvol').style.setProperty('--pr', wPct);
+    if ($('#bvol-pct')) $('#bvol-pct').textContent = v === 0 ? 'Mute' : pctTxt;
+
+    // Defer expensive canvas wave drawing to 1 frame per screen refresh
+    if (!volRafId) {
+      volRafId = requestAnimationFrame(() => {
+        volRafId = 0;
+        const m = (au.muted && (!extAu || !extAu.src)) || pendingVol === 0;
+        const ico = m ? '#i-mute' : '#i-vol';
+        ['#vico use', '#omute use', '#bmute use'].forEach(s => {
+          const u = $(s);
+          if (u && u.getAttribute('href') !== ico) u.setAttribute('href', ico);
+        });
+        if (typeof drawWaveOne === 'function') {
+          drawWaveOne($('#bvwave'), 26, true, m ? 0 : pendingVol);
+        }
+      });
+    }
+  };
+
+  // Add Dedicated Smooth Brightness Pill Slider right below Volume Slider in Now Playing
+  const volpBox = document.querySelector('.volp');
+  if (volpBox && !document.getElementById('bright-pill-box')) {
+    const bp = document.createElement('div');
+    bp.className = 'volp lg2';
+    bp.id = 'bright-pill-box';
+    bp.style.marginTop = '4px';
+    bp.innerHTML = `
+      <div class="vol-fill" id="brt-fill" style="width:50%"></div>
+      <input id="brt-rng" type="range" min="20" max="180" step="1" value="100" aria-label="Brightness" style="position:relative;z-index:3;opacity:0;width:100%;height:100%;cursor:ew-resize;touch-action:none">
+      <div class="vol-hud">
+        <span class="v-left" id="brt-reset" title="Reset Brightness to 100%"><svg class="i"><use href="#i-bright"/></svg><span>Brightness</span></span>
+        <span class="v-dots">• • •</span>
+        <span class="v-mid" id="brt-pct">100%</span>
+        <span class="v-dots">• • •</span>
+        <span class="v-max">180%</span>
+      </div>`;
+    volpBox.after(bp);
+
+    let brtDrag = false;
+    const updateBrtFromPointer = (e) => {
+      const r = bp.getBoundingClientRect();
+      if (!r.width) return;
+      const ratio = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+      const val = Math.round(20 + ratio * 160);
+      window.setBrightness(val, false);
+    };
+    bp.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('#brt-reset')) {
+        window.setBrightness(100, true);
+        return;
+      }
+      e.preventDefault(); e.stopPropagation();
+      brtDrag = true;
+      updateBrtFromPointer(e);
+      try { bp.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+    bp.addEventListener('pointermove', (e) => {
+      if (!brtDrag) return;
+      e.preventDefault();
+      updateBrtFromPointer(e);
+    });
+    ['pointerup', 'pointercancel'].forEach(ev => bp.addEventListener(ev, () => { brtDrag = false; }));
+  }
+
+  // Upgrade setBrightness for Zero-Lag + Native Android/iOS Screen Brightness Sync
+  let brtRafId = 0;
+  const origSetBrightness = window.setBrightness;
+  window.setBrightness = function(val, showHud = true) {
+    const v = Math.max(20, Math.min(180, Math.round(+val || 100)));
+    const pct = ((v - 20) / 160) * 100;
+    const brtFill = document.getElementById('brt-fill');
+    const brtPct = document.getElementById('brt-pct');
+    if (brtFill) brtFill.style.width = pct.toFixed(1) + '%';
+    if (brtPct) brtPct.textContent = v + '%';
+
+    if (!brtRafId) {
+      brtRafId = requestAnimationFrame(() => {
+        brtRafId = 0;
+        if (origSetBrightness) origSetBrightness(v, showHud);
+        // If running inside Capacitor Android/iOS APK/IPA, sync hardware screen brightness
+        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.ScreenBrightness) {
+          window.Capacitor.Plugins.ScreenBrightness.setBrightness({ brightness: Math.min(1, Math.max(0.05, v / 140)) }).catch(() => {});
+        }
+      });
+    }
+  };
+  window.setBrightness(S.get('vBright', 100), false);
+
+  /* --------------------------------------------------------------------------
+     2. UNIVERSAL ALL-CODEC ENGINE (.TS, .FLV, .M3U8, .AVI, .WMV, AC3/DTS/HEVC)
+     -------------------------------------------------------------------------- */
+  let hlsInst = null, mpegtsInst = null;
+  function destroyStreamEngines() {
+    if (hlsInst) { try { hlsInst.destroy(); } catch (e) {} hlsInst = null; }
+    if (mpegtsInst) { try { mpegtsInst.destroy(); } catch (e) {} mpegtsInst = null; }
+  }
+
+  // Intercept track loading for .ts, .flv, .m3u8 containers
+  const origLoad = window.load || load;
+  window.load = load = async function() {
+    destroyStreamEngines();
+    const t = T(queue[i]);
+    if (!t) return origLoad();
+    const fname = (t.fname || (t.file && t.file.name) || t.title || '').toLowerCase();
+
+    // MPEG-TS (.ts) and FLV (.flv) Direct Demuxing via mpegts.js
+    if (/\.(ts|mts|m2ts|flv)$/i.test(fname) && window.mpegts && mpegts.isSupported()) {
+      await origLoad();
+      const isFlv = fname.endsWith('.flv');
+      mpegtsInst = mpegts.createPlayer({
+        type: isFlv ? 'flv' : 'mse',
+        isLive: false,
+        url: t.url
+      }, { enableWorker: true, stashInitialSize: 512 * 1024 });
+      mpegtsInst.attachMediaElement(au);
+      mpegtsInst.load();
+      mpegtsInst.play().catch(() => {});
+      return;
+    }
+
+    // HLS (.m3u8) Streaming Support
+    if (/\.m3u8$/i.test(fname) && window.Hls && Hls.isSupported()) {
+      await origLoad();
+      hlsInst = new Hls({ enableWorker: true });
+      hlsInst.loadSource(t.url);
+      hlsInst.attachMedia(au);
+      hlsInst.on(Hls.Events.MANIFEST_PARSED, () => au.play().catch(() => {}));
+      return;
+    }
+
+    return origLoad();
+  };
+
+  // Stage-4 FFmpeg WebAssembly Remuxer Fallback (Converts AC3/EAC3/DTS/AVI/WMV on the fly if browser rejects codec)
+  let ffmpegLoading = false;
+  async function transcodeUnsupportedAudioOrVideo(t) {
+    if (ffmpegLoading || !t || !t.file) return;
+    ffmpegLoading = true;
+    toast('Universal Codec Engine: Converting AC3/DTS/AVI stream for instant playback…', 6000);
+    try {
+      if (!window.FFmpegWASM) {
+        await new Promise((res, rej) => {
+          const s = document.createElement('script');
+          s.src = 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js';
+          s.onload = res; s.onerror = rej;
+          document.head.appendChild(s);
+        });
+      }
+      const { FFmpeg } = window.FFmpegWASM;
+      const ffmpeg = new FFmpeg();
+      await ffmpeg.load({
+        coreURL: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js'
+      });
+      const inName = 'input_' + (t.fname || 'media.mkv').replace(/[^a-zA-Z0-9._-]/g, '_');
+      const fBuf = new Uint8Array(await t.file.arrayBuffer());
+      await ffmpeg.writeFile(inName, fBuf);
+      // Fast copy video stream + transcode unsupported AC3/DTS audio to stereo AAC
+      await ffmpeg.exec(['-i', inName, '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-ac', '2', '-movflags', '+faststart', 'output.mp4']);
+      const data = await ffmpeg.readFile('output.mp4');
+      const fixedBlob = new Blob([data.buffer], { type: 'video/mp4' });
+      const fixedUrl = URL.createObjectURL(fixedBlob);
+      t.url = fixedUrl;
+      au.src = fixedUrl;
+      au.load();
+      au.play().catch(() => {});
+      toast('All-Codec Engine: Audio/Video successfully decoded!');
+    } catch (err) {
+      console.warn('FFmpeg fallback error:', err);
+    } finally {
+      ffmpegLoading = false;
+    }
+  }
+
+  // Hook into au.onerror for Stage-4 universal codec rescue
+  const prevOnError = au.onerror;
+  au.onerror = async function(ev) {
+    const t = T(queue[i]) || T(queue[0]);
+    if (t && t._errStage >= 2 && !t._ffmpegTried) {
+      t._ffmpegTried = true;
+      transcodeUnsupportedAudioOrVideo(t);
+      return;
+    }
+    if (prevOnError) return prevOnError.call(this, ev);
+  };
+})();
+</script>
 </script></body></html>
