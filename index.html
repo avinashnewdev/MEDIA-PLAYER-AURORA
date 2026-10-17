@@ -3326,7 +3326,7 @@ function setVideoFitMode(mode,showMsg=true){
     if(el)el.oninput=e=>{e.stopPropagation();vStretch[side]=Math.max(-50,Math.min(100,round1(e.target.value)));S.set('vStretch',vStretch);applyVideoTransform()};
     if(num){
       const commitStretch=()=>{const n=parseFloat(num.value);vStretch[side]=Math.max(-50,Math.min(100,round1(Number.isFinite(n)?n:0)));S.set('vStretch',vStretch);applyVideoTransform()};
-      num.oninput=e=>{e.stopPropagation();const n=parseFloat(e.target.value);if(Number.isFinite(n)){vStretch[side]=Math.max(-50,Math.min(100,round1(n));S.set('vStretch',vStretch);applyVideoTransform()}};
+      num.oninput=e=>{e.stopPropagation();const n=parseFloat(e.target.value);if(Number.isFinite(n)){vStretch[side]=Math.max(-50,Math.min(100,round1(n)));S.set('vStretch',vStretch);applyVideoTransform()}};
       num.addEventListener('change',commitStretch);
       num.addEventListener('blur',commitStretch);
       num.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();num.blur()}});
