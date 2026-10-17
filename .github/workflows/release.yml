@@ -1,15 +1,15 @@
-name: Build & Publish Aurora (EXE + APK + iOS)
+name: Build Aurora (Windows + Android + iOS)
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: ["main", "master"]
+  pull_request:
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  # 1. BUILD WINDOWS (.EXE) PORTABLE
   build-exe:
     runs-on: windows-latest
     steps:
@@ -17,16 +17,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Build Windows EXE via Electron-Builder
-        run: |
-          npm install
-          npx electron-builder --win --x64 --publish never
+          cache: npm
+      - name: Install dependencies
+        run: npm install
+      - name: Build portable Windows EXE
+        run: npx electron-builder --win --x64 --publish never
       - uses: actions/upload-artifact@v4
         with:
           name: Aurora-Windows-EXE
           path: dist/*.exe
+          if-no-files-found: error
 
-  # 2. BUILD ANDROID (.APK)
   build-apk:
     runs-on: ubuntu-latest
     steps:
@@ -34,27 +35,31 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
       - uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '17'
-      - name: Bundle Web Assets & Build Android APK
+          distribution: temurin
+          java-version: "17"
+      - name: Install dependencies and configure Capacitor
         run: |
+          npm install
           mkdir -p www
           cp index.html www/index.html
-          cp manifest.webmanifest sw.js icon-512.png icon-192.png www/ || true
-          npm install
+          cp manifest.webmanifest sw.js icon-512.png icon-192.png www/
           npx cap init "Aurora Music" "com.avinash.auroraplayer" --web-dir www
-          npx cap add android || true
+          npx cap add android
           npx cap sync android
-          cd android && chmod +x gradlew && ./gradlew assembleDebug
-          mv app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/Aurora-Media-Player.apk
+      - name: Build Android debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
       - uses: actions/upload-artifact@v4
         with:
           name: Aurora-Android-APK
-          path: android/app/build/outputs/apk/debug/Aurora-Media-Player.apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
 
-  # 3. BUILD iOS (.IPA)
   build-ios:
     runs-on: macos-latest
     steps:
@@ -62,43 +67,46 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Build Unsigned iOS IPA
+          cache: npm
+      - name: Install dependencies and configure Capacitor
         run: |
+          npm install
           mkdir -p www
           cp index.html www/index.html
-          cp manifest.webmanifest sw.js icon-512.png icon-192.png www/ || true
-          npm install
+          cp manifest.webmanifest sw.js icon-512.png icon-192.png www/
           npx cap init "Aurora Music" "com.avinash.auroraplayer" --web-dir www
-          npx cap add ios || true
+          npx cap add ios
           npx cap sync ios
+      - name: Build unsigned iOS app bundle
+        run: |
           cd ios/App
-          if [ -d "App.xcworkspace" ]; then
-            xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO EXPANDED_CODE_SIGN_IDENTITY="" AD_HOC_CODE_SIGNING_ALLOWED=YES
-          else
-            xcodebuild -project App.xcodeproj -scheme App -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO EXPANDED_CODE_SIGN_IDENTITY="" AD_HOC_CODE_SIGNING_ALLOWED=YES
-          fi
+          xcodebuild -project App.xcodeproj -scheme App -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGNING_ALLOWED=NO
           mkdir -p Payload
-          cp -r build/Build/Products/Release-iphoneos/App.app Payload/
-          zip -r Aurora-Media-Player-iOS.ipa Payload
+          cp -R build/Build/Products/Release-iphoneos/App.app Payload/
+          zip -qr Aurora-Media-Player-iOS-UNSIGNED.ipa Payload
       - uses: actions/upload-artifact@v4
         with:
-          name: Aurora-iOS-IPA
-          path: ios/App/Aurora-Media-Player-iOS.ipa
+          name: Aurora-iOS-UNSIGNED-IPA
+          path: ios/App/Aurora-Media-Player-iOS-UNSIGNED.ipa
+          if-no-files-found: error
 
-  # 4. PUBLISH ALL TO GITHUB RELEASES
   publish-release:
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     needs: [build-exe, build-apk, build-ios]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
-      - name: Publish Free GitHub Release
+      - name: Publish release assets
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
-          name: "Aurora Media Player v1.0.${{ github.run_number }} (Windows + Android + iOS)"
+          name: "Aurora Media Player v1.0.${{ github.run_number }}"
+          body: |
+            Automated builds from this commit.
+            The iOS IPA is unsigned and is not directly installable as a normal public iOS release.
           files: |
             artifacts/Aurora-Windows-EXE/*.exe
             artifacts/Aurora-Android-APK/*.apk
-            artifacts/Aurora-iOS-IPA/*.ipa
+            artifacts/Aurora-iOS-UNSIGNED-IPA/*.ipa
